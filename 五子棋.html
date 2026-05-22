@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>五子棋</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: #2c3e50;
+    font-family: 'Microsoft YaHei', sans-serif;
+    color: #e0e0e0;
+  }
+
+  .layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+  }
+
+  /* --- 面板通用 --- */
+  .panel, .timer-panel {
+    width: 250px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 20px 18px;
+    backdrop-filter: blur(8px);
+  }
+
+  .section-title {
+    font-size: 16px;
+    text-align: center;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #8ab4f8;
+  }
+
+  /* --- 左侧规则面板 --- */
+  .rules-list {
+    list-style: none;
+    counter-reset: rule;
+  }
+
+  .rules-list li {
+    counter-increment: rule;
+    margin-bottom: 10px;
+    line-height: 1.7;
+    font-size: 13px;
+    color: #9aa0a6;
+    position: relative;
+    padding-left: 28px;
+  }
+
+  .rules-list li::before {
+    content: counter(rule);
+    position: absolute;
+    left: 0;
+    top: 2px;
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* --- 中间棋盘区 --- */
+  .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .header {
+    text-align: center;
+  }
+
+  .header h1 {
+    font-size: 30px;
+    margin-bottom: 6px;
+    letter-spacing: 6px;
+    background: linear-gradient(90deg, #8ab4f8, #c586f5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .status {
+    font-size: 16px;
+    min-height: 26px;
+    padding: 4px 16px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .status .black-turn { color: #e0e0e0; }
+  .status .white-turn { color: #9aa0a6; }
+  .status .winner {
+    background: linear-gradient(90deg, #f1c40f, #e74c3c);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: bold;
+  }
+
+  canvas {
+    border-radius: 8px;
+    box-shadow: 0 0 40px rgba(100, 130, 255, 0.15), 0 8px 32px rgba(0,0,0,0.5);
+    cursor: pointer;
+  }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+  }
+
+  button {
+    padding: 9px 24px;
+    font-size: 14px;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: bold;
+    transition: all 0.25s;
+    background: rgba(255,255,255,0.1);
+    color: #e0e0e0;
+  }
+
+  button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(100,130,255,0.3);
+    background: rgba(255,255,255,0.18);
+  }
+  button:active { transform: translateY(0); }
+
+  .btn-restart { background: rgba(231,76,60,0.4); border-color: rgba(231,76,60,0.5); }
+  .btn-restart:hover { background: rgba(231,76,60,0.65); }
+  .btn-undo { background: rgba(52,152,219,0.4); border-color: rgba(52,152,219,0.5); }
+  .btn-undo:hover { background: rgba(52,152,219,0.65); }
+  .btn-ai { background: rgba(46,204,113,0.4); border-color: rgba(46,204,113,0.5); }
+  .btn-ai:hover { background: rgba(46,204,113,0.65); }
+  .btn-ai.active {
+    background: rgba(46,204,113,0.6);
+    box-shadow: 0 0 16px rgba(46,204,113,0.4);
+  }
+
+  .ai-order {
+    background: rgba(255,255,255,0.08);
+    color: #e0e0e0;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    padding: 9px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    outline: none;
+    display: none;
+  }
+
+  .ai-order:hover {
+    background: rgba(255,255,255,0.18);
+  }
+
+  /* --- 主题选择器 --- */
+  .theme-selector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #9aa0a6;
+  }
+
+  .theme-selector select {
+    background: rgba(255,255,255,0.08);
+    color: #e0e0e0;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .theme-selector select:focus {
+    border-color: rgba(100,130,255,0.5);
+  }
+
+  .theme-selector input[type="number"] {
+    background: rgba(255,255,255,0.08);
+    color: #e0e0e0;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 13px;
+    font-family: inherit;
+    width: 56px;
+    text-align: center;
+    outline: none;
+    -moz-appearance: textfield;
+  }
+
+  .theme-selector input[type="number"]::-webkit-inner-spin-button,
+  .theme-selector input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .theme-selector input[type="number"]:focus {
+    border-color: rgba(100,130,255,0.5);
+  }
+
+  /* --- 右侧：选手登录 --- */
+  .player-login {
+    margin-bottom: 18px;
+  }
+
+  .player-login .login-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .player-login .stone-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .stone-dot.black { background: radial-gradient(circle at 35% 35%, #555, #111); box-shadow: 0 0 6px rgba(100,130,255,0.4); }
+  .stone-dot.white { background: radial-gradient(circle at 35% 35%, #fff, #bbb); box-shadow: 0 0 6px rgba(200,200,255,0.3); }
+
+  .player-login input {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: #e0e0e0;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .player-login input:focus {
+    border-color: rgba(100,130,255,0.5);
+  }
+
+  .player-login input::placeholder {
+    color: #5f6368;
+  }
+
+  /* --- 右侧：计时面板 --- */
+  .player-timers {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .player-timer {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.3s;
+  }
+
+  .player-timer.active {
+    background: rgba(100,130,255,0.1);
+    border-color: rgba(100,130,255,0.3);
+    box-shadow: 0 0 12px rgba(100,130,255,0.15);
+  }
+
+  .player-timer .pt-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .player-timer .pt-stone {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+  }
+
+  .pt-stone.black { background: radial-gradient(circle at 35% 35%, #555, #111); }
+  .pt-stone.white { background: radial-gradient(circle at 35% 35%, #fff, #bbb); border: 1px solid rgba(255,255,255,0.2); }
+
+  .player-timer .pt-name {
+    font-size: 14px;
+    color: #9aa0a6;
+  }
+
+  .player-timer.active .pt-name { color: #e0e0e0; }
+
+  .player-timer .pt-time {
+    font-size: 22px;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+    color: #9aa0a6;
+  }
+
+  .player-timer.active .pt-time {
+    color: #8ab4f8;
+    text-shadow: 0 0 10px rgba(100,130,255,0.5);
+  }
+
+  .timer-buttons {
+    display: flex;
+    gap: 6px;
+  }
+
+  .timer-buttons button {
+    flex: 1;
+    padding: 7px 0;
+    font-size: 13px;
+  }
+
+  .btn-timer-start { background: rgba(39,174,96,0.45); border-color: rgba(39,174,96,0.5); }
+  .btn-timer-start:hover { background: rgba(39,174,96,0.7); }
+  .btn-timer-pause { background: rgba(243,156,18,0.45); border-color: rgba(243,156,18,0.5); }
+  .btn-timer-pause:hover { background: rgba(243,156,18,0.7); }
+  .btn-timer-reset { background: rgba(127,140,141,0.45); border-color: rgba(127,140,141,0.5); }
+  .btn-timer-reset:hover { background: rgba(127,140,141,0.7); }
+
+  .total-moves {
+    text-align: center;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    font-size: 13px;
+    color: #5f6368;
+  }
+
+  .total-moves span {
+    color: #8ab4f8;
+    font-weight: bold;
+    font-size: 18px;
+  }
+
+  /* --- 移动端紧凑计时条（默认隐藏） --- */
+  .mobile-bar { display: none; }
+
+  .mobile-player-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    max-width: 600px;
+  }
+
+  .mobile-player-row input {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: #e0e0e0;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+  }
+
+  .mobile-player-row input:focus { border-color: rgba(100,130,255,0.4); }
+  .mobile-player-row input::placeholder { color: #5f6368; }
+
+  .mobile-timer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 600px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 14px;
+  }
+
+  .mobile-timer .mt-player {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mobile-timer .mt-stone {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .mt-stone.black { background: radial-gradient(circle at 35% 35%, #555, #111); }
+  .mt-stone.white { background: radial-gradient(circle at 35% 35%, #fff, #bbb); border: 1px solid rgba(255,255,255,0.2); }
+
+  .mobile-timer .mt-time {
+    font-size: 16px;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+    color: #9aa0a6;
+  }
+
+  .mobile-timer .mt-player.active .mt-time {
+    color: #8ab4f8;
+    text-shadow: 0 0 8px rgba(100,130,255,0.4);
+  }
+
+  .mobile-timer .mt-center {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #5f6368;
+  }
+
+  .mobile-timer .mt-center .mt-moves {
+    color: #8ab4f8;
+    font-weight: bold;
+    font-size: 14px;
+  }
+
+  .mt-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #e0e0e0;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .mt-btn:active { background: rgba(255,255,255,0.15); }
+
+  /* --- 响应式：手机端 --- */
+  @media (max-width: 900px) {
+    body {
+      align-items: flex-start;
+      padding: 10px 0;
+    }
+
+    .layout {
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 100vw;
+      padding: 0 8px;
+    }
+
+    .panel { display: none; }
+    .timer-panel { display: none; }
+
+    .mobile-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    .header h1 { font-size: 22px; margin-bottom: 2px; }
+    .status { font-size: 14px; padding: 3px 12px; }
+
+    canvas {
+      max-width: calc(100vw - 16px);
+      max-height: calc(100vw - 16px);
+      height: auto !important;
+      width: auto !important;
+    }
+
+    .controls { gap: 6px; }
+    .controls button { padding: 7px 14px; font-size: 13px; }
+    .ai-order { padding: 7px 10px; font-size: 13px; }
+  }
+
+  @media (max-width: 400px) {
+    .controls button { padding: 6px 10px; font-size: 12px; }
+    .ai-order { padding: 6px 8px; font-size: 12px; }
+    .mobile-timer { padding: 6px 10px; }
+    .mobile-timer .mt-time { font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- 左侧：规则面板 -->
+  <div class="panel">
+    <div class="section-title">游戏规则</div>
+    <ol class="rules-list">
+      <li>可选 12x12、15x15 或自定义（5~25）棋盘，交叉点为落子位置。</li>
+      <li>黑棋先行，双方交替落子，每次只能下一子。</li>
+      <li>先将五枚同色棋子连成一条直线（横、竖、斜均可）的一方获胜。</li>
+      <li>若棋盘下满仍无人达到五子连珠，则判为平局。</li>
+      <li>落子后不可移动棋子，但可以使用"悔棋"撤回。</li>
+      <li>点击"人机对战"可切换为与 AI 对弈模式，可选 AI 执黑先手或执白后手。</li>
+      <li>右侧可登录选手姓名并记录双方用时。</li>
+    </ol>
+  </div>
+
+  <!-- 中间：棋盘 -->
+  <div class="container">
+    <div class="header">
+      <h1>五 子 棋</h1>
+      <div class="status" id="status"><span class="black-turn">⚫ 黑棋落子</span></div>
+    </div>
+
+    <!-- 主题选择（桌面端） -->
+    <div class="theme-selector" id="themeSelector">
+      <span>棋盘风格</span>
+      <select id="themeSelect" onchange="changeTheme(this.value)">
+        <option value="classic" selected>经典木纹</option>
+        <option value="cyber">赛博蓝</option>
+        <option value="matrix">黑客绿</option>
+        <option value="aurora">极光紫</option>
+        <option value="ember">暗焰橙</option>
+      </select>
+    </div>
+
+    <!-- 棋盘大小选择 -->
+    <div class="theme-selector">
+      <span>棋盘大小</span>
+      <select id="sizeSelect" onchange="changeBoardSize(this.value)">
+        <option value="12">12 × 12</option>
+        <option value="15" selected>15 × 15</option>
+        <option value="custom">自定义</option>
+      </select>
+      <input id="customSizeInput" type="number" min="5" max="25" value="15" style="display:none" onchange="applyCustomSize()">
+    </div>
+
+    <!-- 移动端：选手名 + 计时 -->
+    <div class="mobile-bar">
+      <div class="mobile-player-row">
+        <input id="mBlackName" type="text" placeholder="黑棋选手" maxlength="8" oninput="syncNames()">
+        <input id="mWhiteName" type="text" placeholder="白棋选手" maxlength="8" oninput="syncNames()">
+      </div>
+      <div class="mobile-timer" id="mobileTimer">
+        <div class="mt-player active" id="mtBlack">
+          <span class="mt-stone black"></span>
+          <span class="mt-time" id="mtBlackTime">00:00</span>
+        </div>
+        <div class="mt-center">
+          <span>第</span><span class="mt-moves" id="mtMoves">0</span><span>手</span>
+          <button class="mt-btn" id="mtBtn" onclick="toggleMobileTimer()">计时</button>
+        </div>
+        <div class="mt-player" id="mtWhite">
+          <span class="mt-time" id="mtWhiteTime">00:00</span>
+          <span class="mt-stone white"></span>
+        </div>
+      </div>
+    </div>
+
+    <canvas id="board"></canvas>
+    <div class="controls">
+      <button class="btn-ai" id="btnAi" onclick="toggleAi()">人机对战</button>
+      <select class="ai-order" id="aiOrder" onchange="changeAiOrder(this.value)">
+        <option value="2">AI执白(后手)</option>
+        <option value="1">AI执黑(先手)</option>
+      </select>
+      <button class="btn-undo" onclick="undo()">悔 棋</button>
+      <button class="btn-restart" onclick="restart()">重新开始</button>
+    </div>
+  </div>
+
+  <!-- 右侧面板 -->
+  <div class="timer-panel">
+    <!-- 选手登录 -->
+    <div class="player-login">
+      <div class="section-title">选手登录</div>
+      <div class="login-row">
+        <span class="stone-dot black"></span>
+        <input id="dBlackName" type="text" placeholder="黑棋选手姓名" maxlength="8" oninput="syncNames()">
+      </div>
+      <div class="login-row">
+        <span class="stone-dot white"></span>
+        <input id="dWhiteName" type="text" placeholder="白棋选手姓名" maxlength="8" oninput="syncNames()">
+      </div>
+    </div>
+
+    <!-- 计时器 -->
+    <div class="section-title">计时器</div>
+    <div class="player-timers">
+      <div class="player-timer active" id="blackTimerBox">
+        <div class="pt-info">
+          <span class="pt-stone black"></span>
+          <span class="pt-name" id="blackNameLabel">黑棋</span>
+        </div>
+        <span class="pt-time" id="blackTime">00:00</span>
+      </div>
+      <div class="player-timer" id="whiteTimerBox">
+        <div class="pt-info">
+          <span class="pt-stone white"></span>
+          <span class="pt-name" id="whiteNameLabel">白棋</span>
+        </div>
+        <span class="pt-time" id="whiteTime">00:00</span>
+      </div>
+    </div>
+    <div class="timer-buttons">
+      <button class="btn-timer-start" id="btnTimerStart" onclick="startTimer()">开始</button>
+      <button class="btn-timer-pause" id="btnTimerPause" onclick="pauseTimer()">暂停</button>
+      <button class="btn-timer-reset" onclick="resetTimer()">重置</button>
+    </div>
+    <div class="total-moves">
+      总步数 <span id="moveCount">0</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let SIZE = 15;
+let CELL = 40;
+const PADDING = 30;
+let STONE_R = 17;
+let WIDTH = (SIZE - 1) * CELL + PADDING * 2;
+
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+canvas.width = WIDTH;
+canvas.height = WIDTH;
+
+let board, history, gameOver, currentPlayer, aiMode, aiPlayer, lastMove;
+
+// --- Theme system ---
+const THEMES = {
+  cyber: {
+    bg: '#0b1628',
+    board: () => {
+      const g = ctx.createLinearGradient(0, 0, WIDTH, WIDTH);
+      g.addColorStop(0, '#0f2035');
+      g.addColorStop(1, '#1a3050');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, WIDTH, WIDTH);
+    },
+    grid: '#2a5080',
+    star: '#3a7bd5',
+    lastMove: '#00d4ff',
+    winLine: 'rgba(0,212,255,0.8)',
+    blackStone: ['#8888aa', '#2a2a40'],
+    whiteStone: ['#ffffff', '#b0c4e8'],
+    stoneBorder: ['#5060a0', '#4488cc'],
+  },
+  matrix: {
+    bg: '#020d02',
+    board: () => {
+      ctx.fillStyle = '#081808';
+      ctx.fillRect(0, 0, WIDTH, WIDTH);
+    },
+    grid: '#1a5a1a',
+    star: '#00ff41',
+    lastMove: '#00ff41',
+    winLine: 'rgba(0,255,65,0.8)',
+    blackStone: ['#7aaa7a', '#1a4020'],
+    whiteStone: ['#ffffff', '#90d890'],
+    stoneBorder: ['#30a030', '#40b040'],
+  },
+  aurora: {
+    bg: '#0f0520',
+    board: () => {
+      const g = ctx.createLinearGradient(0, 0, WIDTH, WIDTH);
+      g.addColorStop(0, '#180a30');
+      g.addColorStop(1, '#221040');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, WIDTH, WIDTH);
+    },
+    grid: '#403070',
+    star: '#a855f7',
+    lastMove: '#d946ef',
+    winLine: 'rgba(217,70,239,0.8)',
+    blackStone: ['#9a7abc', '#301a50'],
+    whiteStone: ['#ffffff', '#c8a8e8'],
+    stoneBorder: ['#7050a0', '#8860c0'],
+  },
+  ember: {
+    bg: '#120808',
+    board: () => {
+      const g = ctx.createLinearGradient(0, 0, WIDTH, WIDTH);
+      g.addColorStop(0, '#1e1010');
+      g.addColorStop(1, '#281818');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, WIDTH, WIDTH);
+    },
+    grid: '#5a3020',
+    star: '#f97316',
+    lastMove: '#fb923c',
+    winLine: 'rgba(251,146,60,0.8)',
+    blackStone: ['#b08868', '#3a2218'],
+    whiteStone: ['#ffffff', '#e0c8a0'],
+    stoneBorder: ['#c07030', '#d09050'],
+  },
+  classic: {
+    bg: '#2c3e50',
+    board: () => {
+      ctx.fillStyle = '#dcb35c';
+      ctx.fillRect(0, 0, WIDTH, WIDTH);
+    },
+    grid: '#5a3e1b',
+    star: '#5a3e1b',
+    lastMove: '#e74c3c',
+    winLine: 'rgba(231,76,60,0.8)',
+    blackStone: ['#606060', '#0a0a0a'],
+    whiteStone: ['#ffffff', '#d8d8d8'],
+    stoneBorder: ['#000000', '#888888'],
+  },
+};
+
+let currentTheme = 'cyber';
+
+function changeTheme(name) {
+  if (THEMES[name]) {
+    currentTheme = name;
+    document.body.style.background = THEMES[name].bg;
+    draw();
+  }
+}
+
+// --- Player names ---
+function getPlayerName(player) {
+  const input = document.getElementById('dBlackName');
+  const bName = (input.value || '').trim() || '黑棋';
+  const wName = (document.getElementById('dWhiteName').value || '').trim() || '白棋';
+  return player === 1 ? bName : wName;
+}
+
+function syncNames() {
+  const dBlack = document.getElementById('dBlackName').value;
+  const dWhite = document.getElementById('dWhiteName').value;
+  document.getElementById('mBlackName').value = dBlack;
+  document.getElementById('mWhiteName').value = dWhite;
+
+  document.getElementById('blackNameLabel').textContent = dBlack.trim() || '黑棋';
+  document.getElementById('whiteNameLabel').textContent = dWhite.trim() || '白棋';
+
+  if (!gameOver) updateStatus();
+}
+
+// --- Timer ---
+let blackSeconds = 0, whiteSeconds = 0;
+let timerRunning = false, timerInterval = null;
+
+function formatTime(sec) {
+  const m = String(Math.floor(sec / 60)).padStart(2, '0');
+  const s = String(sec % 60).padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function updateTimerDisplay() {
+  document.getElementById('blackTime').textContent = formatTime(blackSeconds);
+  document.getElementById('whiteTime').textContent = formatTime(whiteSeconds);
+  document.getElementById('mtBlackTime').textContent = formatTime(blackSeconds);
+  document.getElementById('mtWhiteTime').textContent = formatTime(whiteSeconds);
+
+  const blackBox = document.getElementById('blackTimerBox');
+  const whiteBox = document.getElementById('whiteTimerBox');
+  blackBox.classList.toggle('active', currentPlayer === 1 && !gameOver);
+  whiteBox.classList.toggle('active', currentPlayer === 2 && !gameOver);
+  document.getElementById('mtBlack').classList.toggle('active', currentPlayer === 1 && !gameOver);
+  document.getElementById('mtWhite').classList.toggle('active', currentPlayer === 2 && !gameOver);
+  document.getElementById('mtMoves').textContent = history.length;
+}
+
+function startTimer() {
+  if (timerRunning || gameOver) return;
+  timerRunning = true;
+  document.getElementById('btnTimerStart').textContent = '计时中';
+  document.getElementById('mtBtn').textContent = '暂停';
+  timerInterval = setInterval(() => {
+    if (gameOver) { pauseTimer(); return; }
+    if (currentPlayer === 1) blackSeconds++;
+    else whiteSeconds++;
+    updateTimerDisplay();
+  }, 1000);
+}
+
+function pauseTimer() {
+  timerRunning = false;
+  clearInterval(timerInterval);
+  timerInterval = null;
+  document.getElementById('btnTimerStart').textContent = '继续';
+  document.getElementById('mtBtn').textContent = '继续';
+}
+
+function resetTimer() {
+  pauseTimer();
+  blackSeconds = 0;
+  whiteSeconds = 0;
+  updateTimerDisplay();
+  document.getElementById('btnTimerStart').textContent = '开始';
+  document.getElementById('mtBtn').textContent = '计时';
+}
+
+function toggleMobileTimer() {
+  if (timerRunning) pauseTimer();
+  else startTimer();
+}
+
+// --- Board size ---
+function recalcBoard() {
+  const targetPx = 620;
+  CELL = Math.max(20, Math.floor((targetPx - PADDING * 2) / (SIZE - 1)));
+  STONE_R = Math.max(8, Math.floor(CELL * 0.42));
+  WIDTH = (SIZE - 1) * CELL + PADDING * 2;
+  canvas.width = WIDTH;
+  canvas.height = WIDTH;
+}
+
+function changeBoardSize(val) {
+  const customInput = document.getElementById('customSizeInput');
+  if (val === 'custom') {
+    customInput.style.display = 'inline-block';
+    return;
+  }
+  customInput.style.display = 'none';
+  SIZE = parseInt(val);
+  recalcBoard();
+  restart();
+}
+
+function applyCustomSize() {
+  const input = document.getElementById('customSizeInput');
+  let val = parseInt(input.value);
+  if (isNaN(val) || val < 5) val = 5;
+  if (val > 25) val = 25;
+  input.value = val;
+  SIZE = val;
+  recalcBoard();
+  restart();
+}
+
+// --- Game ---
+function init() {
+  board = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+  history = [];
+  gameOver = false;
+  currentPlayer = 1;
+  lastMove = null;
+  updateStatus();
+  updateTimerDisplay();
+  document.getElementById('moveCount').textContent = '0';
+  draw();
+}
+
+function draw() {
+  const t = THEMES[currentTheme];
+
+  // board background
+  t.board();
+
+  // grid
+  ctx.strokeStyle = t.grid;
+  ctx.lineWidth = 1;
+  for (let i = 0; i < SIZE; i++) {
+    const pos = PADDING + i * CELL;
+    ctx.beginPath(); ctx.moveTo(PADDING, pos); ctx.lineTo(WIDTH - PADDING, pos); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pos, PADDING); ctx.lineTo(pos, WIDTH - PADDING); ctx.stroke();
+  }
+
+  // star points
+  ctx.fillStyle = t.star;
+  const stars = [Math.floor(SIZE / 4), Math.floor((SIZE - 1) / 2), SIZE - 1 - Math.floor(SIZE / 4)];
+  for (const r of stars)
+    for (const c of stars) {
+      ctx.beginPath();
+      ctx.arc(PADDING + c * CELL, PADDING + r * CELL, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+  // stones
+  if (board) {
+    for (let r = 0; r < SIZE; r++)
+      for (let c = 0; c < SIZE; c++)
+        if (board[r][c]) drawStone(r, c, board[r][c]);
+  }
+
+  // last move marker
+  if (lastMove) {
+    ctx.strokeStyle = t.lastMove;
+    ctx.lineWidth = 2;
+    const x = PADDING + lastMove[1] * CELL;
+    const y = PADDING + lastMove[0] * CELL;
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function drawStone(r, c, player) {
+  const t = THEMES[currentTheme];
+  const x = PADDING + c * CELL;
+  const y = PADDING + r * CELL;
+
+  const colors = player === 1 ? t.blackStone : t.whiteStone;
+  const border = player === 1 ? t.stoneBorder[0] : t.stoneBorder[1];
+
+  const grad = ctx.createRadialGradient(x - 4, y - 4, 2, x, y, STONE_R);
+  grad.addColorStop(0, colors[0]);
+  grad.addColorStop(1, colors[1]);
+  ctx.fillStyle = grad;
+
+  ctx.beginPath();
+  ctx.arc(x, y, STONE_R, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = border;
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+}
+
+function updateStatus() {
+  const el = document.getElementById('status');
+  if (gameOver) return;
+  const bName = getPlayerName(1);
+  const wName = getPlayerName(2);
+  el.innerHTML = currentPlayer === 1
+    ? `<span class="black-turn">⚫ ${bName} 落子</span>`
+    : `<span class="white-turn">⚪ ${wName} 落子</span>`;
+}
+
+function checkWin(r, c) {
+  const p = board[r][c];
+  if (!p) return null;
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+  for (const [dr, dc] of dirs) {
+    let count = 1;
+    for (let d = -1; d <= 1; d += 2) {
+      let nr = r + dr * d, nc = c + dc * d;
+      while (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === p) {
+        count++; nr += dr * d; nc += dc * d;
+      }
+    }
+    if (count >= 5) return p;
+  }
+  return null;
+}
+
+function placeStone(r, c) {
+  if (gameOver || board[r][c]) return false;
+  board[r][c] = currentPlayer;
+  history.push([r, c, currentPlayer]);
+  lastMove = [r, c];
+  document.getElementById('moveCount').textContent = history.length;
+
+  const winner = checkWin(r, c);
+  if (winner) {
+    gameOver = true;
+    const name = getPlayerName(winner);
+    document.getElementById('status').innerHTML = `<span class="winner">🎉 ${name} 获胜！</span>`;
+    draw();
+    highlightWin(r, c, winner);
+    pauseTimer();
+    updateTimerDisplay();
+    return true;
+  }
+
+  if (history.length === SIZE * SIZE) {
+    gameOver = true;
+    document.getElementById('status').innerHTML = '<span class="winner">平局！</span>';
+    draw();
+    pauseTimer();
+    updateTimerDisplay();
+    return true;
+  }
+
+  currentPlayer = currentPlayer === 1 ? 2 : 1;
+  updateStatus();
+  updateTimerDisplay();
+  draw();
+  return true;
+}
+
+function highlightWin(r, c, player) {
+  const t = THEMES[currentTheme];
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+  for (const [dr, dc] of dirs) {
+    let stones = [[r, c]];
+    for (let d = -1; d <= 1; d += 2) {
+      let nr = r + dr * d, nc = c + dc * d;
+      while (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === player) {
+        stones.push([nr, nc]); nr += dr * d; nc += dc * d;
+      }
+    }
+    if (stones.length >= 5) {
+      ctx.strokeStyle = t.winLine;
+      ctx.lineWidth = 4;
+      stones.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+      const first = stones[0], last = stones[stones.length - 1];
+      ctx.beginPath();
+      ctx.moveTo(PADDING + first[1] * CELL, PADDING + first[0] * CELL);
+      ctx.lineTo(PADDING + last[1] * CELL, PADDING + last[0] * CELL);
+      ctx.stroke();
+      return;
+    }
+  }
+}
+
+// --- AI ---
+function toggleAi() {
+  aiMode = !aiMode;
+  const btn = document.getElementById('btnAi');
+  const orderSelect = document.getElementById('aiOrder');
+  btn.classList.toggle('active', aiMode);
+  btn.textContent = aiMode ? '人机对战中' : '人机对战';
+  orderSelect.style.display = aiMode ? 'inline-block' : 'none';
+
+  if (aiMode) {
+    aiPlayer = parseInt(orderSelect.value);
+    updateAiNameLock();
+  } else {
+    document.getElementById('dBlackName').value = '';
+    document.getElementById('dBlackName').readOnly = false;
+    document.getElementById('dBlackName').style.opacity = '1';
+    document.getElementById('dWhiteName').value = '';
+    document.getElementById('dWhiteName').readOnly = false;
+    document.getElementById('dWhiteName').style.opacity = '1';
+  }
+  syncNames();
+  restart();
+}
+
+function changeAiOrder(val) {
+  aiPlayer = parseInt(val);
+  updateAiNameLock();
+  syncNames();
+  restart();
+}
+
+function updateAiNameLock() {
+  const blackInput = document.getElementById('dBlackName');
+  const whiteInput = document.getElementById('dWhiteName');
+  // Reset both first
+  blackInput.readOnly = false; blackInput.style.opacity = '1'; blackInput.value = '';
+  whiteInput.readOnly = false; whiteInput.style.opacity = '1'; whiteInput.value = '';
+  // Lock AI's color input
+  if (aiPlayer === 1) {
+    blackInput.value = '棋魂小五';
+    blackInput.readOnly = true;
+    blackInput.style.opacity = '0.5';
+  } else {
+    whiteInput.value = '棋魂小五';
+    whiteInput.readOnly = true;
+    whiteInput.style.opacity = '0.5';
+  }
+}
+
+function aiMove() {
+  if (gameOver || currentPlayer !== aiPlayer) return;
+  let bestScore = -Infinity, bestMoves = [];
+  for (let r = 0; r < SIZE; r++)
+    for (let c = 0; c < SIZE; c++) {
+      if (board[r][c] || !hasNeighbor(r, c, 2)) continue;
+      const score = evaluatePosition(r, c);
+      if (score > bestScore) { bestScore = score; bestMoves = [[r, c]]; }
+      else if (score === bestScore) bestMoves.push([r, c]);
+    }
+  if (bestMoves.length === 0) { placeStone(Math.floor(SIZE / 2), Math.floor(SIZE / 2)); return; }
+  const [ar, ac] = bestMoves[Math.floor(Math.random() * bestMoves.length)];
+  placeStone(ar, ac);
+}
+
+function hasNeighbor(r, c, dist) {
+  for (let dr = -dist; dr <= dist; dr++)
+    for (let dc = -dist; dc <= dist; dc++) {
+      if (!dr && !dc) continue;
+      const nr = r + dr, nc = c + dc;
+      if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc]) return true;
+    }
+  return false;
+}
+
+function evaluatePosition(r, c) {
+  const human = 3 - aiPlayer;
+  return evalForPlayer(r, c, aiPlayer) * 1.1 + evalForPlayer(r, c, human);
+}
+
+function evalForPlayer(r, c, player) {
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+  let total = 0;
+  for (const [dr, dc] of dirs) {
+    let count = 1, open = 0;
+    for (let d = -1; d <= 1; d += 2) {
+      let nr = r + dr * d, nc = c + dc * d;
+      while (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === player) { count++; nr += dr * d; nc += dc * d; }
+      if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === 0) open++;
+    }
+    total += patternScore(count, open);
+  }
+  return total;
+}
+
+function patternScore(count, open) {
+  if (count >= 5) return 1000000;
+  if (open === 0) return 0;
+  if (count === 4) return open === 2 ? 50000 : 5000;
+  if (count === 3) return open === 2 ? 3000 : 500;
+  if (count === 2) return open === 2 ? 300 : 50;
+  if (count === 1) return open === 2 ? 20 : 5;
+  return 0;
+}
+
+// --- Controls ---
+function undo() {
+  if (history.length === 0) return;
+  if (gameOver) gameOver = false;
+  const steps = aiMode && history.length >= 2 ? 2 : 1;
+  for (let i = 0; i < steps && history.length > 0; i++) {
+    const [r, c] = history.pop();
+    board[r][c] = 0;
+  }
+  lastMove = history.length > 0 ? [history[history.length - 1][0], history[history.length - 1][1]] : null;
+  currentPlayer = history.length === 0 ? 1 : (history.length % 2 === 0 ? 1 : 2);
+  document.getElementById('moveCount').textContent = history.length;
+  updateStatus();
+  updateTimerDisplay();
+  draw();
+}
+
+function restart() {
+  aiMode = aiMode || false;
+  resetTimer();
+  init();
+  if (aiMode && aiPlayer === 1) setTimeout(aiMove, 200);
+}
+
+// --- Input ---
+let touchHandled = false;
+
+function handleClick(mx, my) {
+  if (gameOver) return;
+  if (aiMode && currentPlayer === aiPlayer) return;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (mx - rect.left) * scaleX;
+  const y = (my - rect.top) * scaleY;
+  const c = Math.round((x - PADDING) / CELL);
+  const r = Math.round((y - PADDING) / CELL);
+  if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return;
+  if (placeStone(r, c) && aiMode && !gameOver) {
+    setTimeout(aiMove, 200);
+  }
+}
+
+canvas.addEventListener('click', (e) => {
+  if (touchHandled) { touchHandled = false; return; }
+  handleClick(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  touchHandled = true;
+  const t = e.changedTouches[0];
+  handleClick(t.clientX, t.clientY);
+}, { passive: false });
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+}, { passive: false });
+
+// --- Init ---
+aiMode = false;
+aiPlayer = 2;
+changeTheme('classic');
+init();
+</script>
+</body>
+</html>
